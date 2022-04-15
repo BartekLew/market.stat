@@ -20,8 +20,10 @@ trendCurve <- function (idx, arr) {
         }
     }
 
-    ansX<-c(ansX, idx[length(arr)]);
-    ansY<-c(ansY, arr[length(arr)]);
+    if(ansY[length(ansY)] != arr[length(arr)]) {
+        ansX<-c(ansX, idx[length(arr)]);
+        ansY<-c(ansY, arr[length(arr)]);
+    }
     data.frame(x=ansX, y=ansY);
 };
 
@@ -29,6 +31,51 @@ dateLine <- function(date, start, min, max) {
     if(start < date) {
         lines(c(date, date), c(min, max), col="blue");
     }
+};
+
+slope <- function(frame) {
+    x<-frame[[1]];
+    y<-frame[[2]];
+
+    ans <- c();
+    for(i in 2:length(y)) {
+        ans[i-1] <- round((y[i]-y[i-1]) / as.numeric(x[i] - x[i-1]), digits=1);
+    }
+    ans[length(y)] = ans[length(ans)];
+    
+    data.frame(x=x, y=ans);
+}
+
+idxOf <- function(l) {
+    ans <- 0;
+    for(i in 1:length(l)) {
+        if(l[i]) { ans<-i; break; }
+    }
+    ans;
+}
+
+fitIn <- function(tx, ty, vx) {
+    ans <- c(ty[1]);
+
+    for(i in 2:length(ty)) {
+        base <- ty[i-1];
+        dx <- as.numeric(tx[i]-tx[i-1]);
+        dy <- ty[i] - base;
+        xs <- vx[vx <= tx[i] & vx > tx[i-1]];
+        step <- dy / dx;
+        for(j in 1:length(xs)) {
+            y <- base + step * as.numeric(xs[j]-tx[i-1]);
+            ans <- append(ans, y);
+        }
+    }
+
+    data.frame(x=vx, y=ans);
+};
+
+scaleToMax <- function(frame, max) {
+    arr <- frame[[2]];
+    fmax <- max(arr); scale <- max/fmax;
+    data.frame(frame[[1]], arr*scale);
 };
 
 library(ggplot2)
@@ -39,10 +86,12 @@ ans <- data.frame();
 for(i in commandArgs(trailingOnly=TRUE)) {
     data <- read.csv(i);
     data$Date <- as.Date(data$Date, "%b %d, %Y");
+    data$Price <- as.numeric(sub(",", "", data$Price));
+
     data <- data[order(data$Date),];
 
     dates <- data$Date;
-    prices <- as.numeric(sub(",", "", data$Price));
+    prices <- data$Price;
 
     min <- min(prices);
     max <- max(prices);
@@ -54,12 +103,16 @@ for(i in commandArgs(trailingOnly=TRUE)) {
                         round(prices[length(prices)] - avg, 2)), stringsAsFactors=FALSE);
 
     amp <- max-min;
+    trend <- trendCurve(dates,prices);
     plot(dates, prices, main=i);
-    lines(trendCurve(dates, prices), col="red", lwd=4);
+    lines(trend, col="red", lwd=4);
     dateLine(as.Date("2008-06-01", "%Y-%m-%d"), dates[1], min, max);
     dateLine(as.Date("2018-01-01", "%Y-%m-%d"), dates[1], min, max);
     dateLine(as.Date("2020-03-01", "%Y-%m-%d"), dates[1], min, max);
     dateLine(as.Date("2022-02-26", "%Y-%m-%d"), dates[1], min, max);
+
+    data <- cbind(data, Slope=slope(scaleToMax(fitIn(trend$x, trend$y, data$Date),1000))$y);
+    write.csv(data, sprintf("bd/%s", i));
 }
 
 names(ans) <- c("ticker", "age", "min", "max", "mean", "change(%)", "last");
