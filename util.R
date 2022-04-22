@@ -91,13 +91,13 @@ trendCurve <- function (idx, arr, minLen=365) {
 
 # For given (x,y) frame, return data frame with slope of curve
 # instead of original value.
-slope <- function(frame) {
+slope <- function(frame, digits=1) {
     x<-frame[[1]];
     y<-frame[[2]];
 
     ans <- c();
     for(i in 2:length(y)) {
-        ans[i-1] <- round((y[i]-y[i-1]) / as.numeric(x[i] - x[i-1]), digits=1);
+        ans[i-1] <- round((y[i]-y[i-1]) / as.numeric(x[i] - x[i-1]), digits=digits);
     }
     ans[length(y)] = ans[length(ans)];
     
@@ -118,50 +118,146 @@ idxOf <- function(l) {
 # value estimated using linear function that have values in
 # preceding and following ty
 fitIn <- function(tx, ty, vx) {
-
     vx <- vx[vx >= tx[1] & vx <= tx[length(tx)]];
     ans <- data.frame();
-    if(tx[1] == vx[1]) ans<-rbind(ans, list(tx[1], ty[1]));
 
+    if(vx[1] == tx[1]) { ans <- data.frame(x=c(vx[1]), y=(ty[1])); }
     for(i in 2:length(ty)) {
         base <- ty[i-1];
         dx <- as.numeric(tx[i]-tx[i-1]);
         dy <- ty[i] - base;
         xs <- vx[vx <= tx[i] & vx > tx[i-1]];
         step <- dy / dx;
-        ans <- rbind(ans, data.frame(xs, base + step * as.numeric(xs-tx[i-1])));
+        ans <- rbind(ans, data.frame(x=c(as.Date(xs)), y=c(base + step * as.numeric(xs-tx[i-1]))));
     }
 
-    names(ans)<- c("x", "y");
     ans;
 };
 
 # Function to calculate price change corelations between noted assets.
-corelations <- function (frame) {
-    rows <- data.frame();
-    for(t1 in frame$ticker) {
-        row <- c();
-        i<-0;
-        for(t2 in frame$ticker) {
-            if(t1 == t2) {
-                row <- append(row, NA);
-            } else {
-                a <- get(t1);
-                b <- get(t2);
-                if(a$date[1] > b$date[1]) {
-                    c <- a;
-                    a <- b;
-                    b <- c;
-                }
-                row[i] <- NA;
-                try({fitted <- fitIn(a$date, a$price, b$date);
-                     row[i] <- cor(fitted$y, b[b$date<=last(fitted$x),]$price);});
-            }
-        }
-        rows <- rbind(rows, row);
-    }
+corelations <- function (frame, varname="cors") {
+    dim <- nrow(frame);
+    rows <- sapply(1:dim, function(x) 1:dim);
     names(rows) <- frame$ticker;
     row.names(rows) <- frame$ticker;
-    rows;
+
+    for(t1 in 1:dim) {
+        for(t2 in 1:dim) {
+            if(t1 == t2) {
+                rows[t1,t2] <- NA;
+            } else {
+                a <- get(frame$ticker[t1]);
+                b <- get(frame$ticker[t2]);
+                if(a$date[1] > b$date[1]) { c<-a;a<-b;b<-c; }
+                rows[t1,t2] <- NA;
+                try({fitted <- fitIn(a$date, a$price, b$date);
+                     rows[t1,t2] <- cor(fitted$y, b[b$date<=last(fitted$x),]$price);});
+                assign(varname, rows, envir=.GlobalEnv);
+                cat(frame$ticker[t1], frame$ticker[t2], rows[t1,t2], "\n");
+            }
+        }
+    }
+    rows
 }
 
+# convenient mapping frames
+mapf <- function(frame, fun, cols=1:length(frame)) {
+    sapply(1:nrow(frame), function(i) {
+                             row <- frame[i,cols];
+                             fun(row);
+                          });
+}
+
+# Raw asset price history is not very useful for my analisys.
+# I want to express them in term of standard deviations difference
+# from mean.
+norm <- function(vec) {
+    mean <- mean(vec);
+    sd <- sd(vec);
+    vapply(vec, function(x) (x - mean) / sd, 0);
+}
+
+# I want to transform raw asset information into statistics that could
+# be useful to predict future movements.
+tradingOdds <- function(frame, sampleLen=40) {
+    tc <- trendCurve(frame$date, frame$price);
+    mean10=windowOp(frame, 10, rowOp(mean, "price"));
+    sdev10=windowOp(frame, 10, rowOp(sd, "price"));
+    mean30=windowOp(frame, 30, rowOp(mean, "price"));
+    sdev30=windowOp(frame, 30, rowOp(sd, "price"));
+    meanYr=windowOp(frame, 365, rowOp(mean, "price"));
+    sdevYr=windowOp(frame, 365, rowOp(sd, "price"));
+    mean=mean(frame$price);
+    sdev=sd(frame$price);
+
+    #Let's gather some statistical facts about each day
+    #trendSlope is the only one that says about future
+    #and which is the most relevant.
+    statdat<- data.frame(date=frame$date, daysd=mapf(frame, function(r) max(r) - min(r), cols=2:5),
+                         close=mapf(frame, function(r) {
+                                                min <- min(r); max <- max(r);
+                                                if(min == max) 0 
+                                                else (r$price - min) / (max-min)
+                                           },
+                                           cols=2:5),
+                         pos=(frame$price - mean)/sdev,
+                         pos10=(frame$price - mean10)/sdev10,
+                         pos30=(frame$price - mean30)/sdev30,
+                         posYr=(frame$price - meanYr)/sdevYr,
+                         trendSlope=frame$trend);
+
+    # Now, let's look at distributions in small groups
+    statdat <- groupMap(statdat, denser(tc$x, sampleLen), fun=function(group) {
+                                            data.frame(start=group$date[1],
+                                                       end=group$date[nrow(group)],
+                                                       mean10=mean(group$pos10),
+                                                       mean30=mean(group$pos30),
+                                                       meanYr=mean(group$posYr),
+                                                       slope=group$trend[1])
+                                            });
+
+    # Finally, I'm interested in probabilities that each mean positive 
+    # come with positive slope and negative come with negative.
+    pp <- nrow(statdat[statdat$mean10 >= 0 & statdat$slope >= 0,]);
+    pn <- nrow(statdat[statdat$mean10 >= 0 & statdat$slope <= 0,]);
+    np <- nrow(statdat[statdat$mean10 <= 0 & statdat$slope >= 0,]);
+    nn <- nrow(statdat[statdat$mean10 <= 0 & statdat$slope <= 0,]);
+    
+    data.frame(positive = pp/(pp+pn), negative = nn/(nn+np));
+}
+
+# Take a data frame and then key=ranges pair. key is name of column
+# of frame used as index. ranges is list of key values of key column
+# that are used to group frame values in distinct frames. Run fun
+# on each frame and return list/frame of values.
+groupMap <- function(frame, ranges, key="date", fun=NA) {
+    ans<-data.frame();
+    for(i in 2:length(ranges)) {
+        if(ranges[i] - ranges[i-1]>2)
+            try(ans<-rbind(ans, fun(frame[frame[,key] >= ranges[i-1] & frame[,key] < ranges[i],])));
+    }
+
+    ans;
+}
+
+# accepts vector of numbers representing ranges. Add more points to
+# it, so that each range is of given size.
+denser <- function(range, step) {
+    c(flatMap(2:length(range), function (i) {
+                                width <- range[i] - range[i-1];
+                                remainder <- as.numeric(width) %% step;
+                                steps <- as.numeric(width) %/% step - 1;
+                                c(range[i-1], range[i-1]+step+remainder,
+                                  range[i-1] + remainder + step * 2:steps);
+                             }),
+      last(range));
+}
+
+flatMap <- function(vals, fun) {
+    ans <- c();
+    for(i in 1:length(vals)) {
+        ans <- append(ans, fun(vals[i]));
+    }
+
+    ans;
+}
