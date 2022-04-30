@@ -1,3 +1,7 @@
+source('changeStat.R');
+
+id <- function(x) x;
+loc <- Sys.setlocale("LC_TIME", "C");
 last <- function(arr) { arr[length(arr)]; }
 
 #Show chart for given etf.
@@ -177,6 +181,16 @@ norm <- function(vec) {
     vapply(vec, function(x) (x - mean) / sd, 0);
 }
 
+# for given array of numeric or dates and val, return how it relates
+# to closest points in arr. 0 means val is element of arr; 0.5 means
+# that it's exactly in the middle between two points of arr and 0.99
+# means that it's almost equal, but smaller then some of arr points.
+prog <- function(arr, val) {
+    if(val < arr[1] | val > last(arr)) 
+        stop("value in prog out of bounds");
+
+}
+
 # I want to transform raw asset information into statistics that could
 # be useful to predict future movements.
 tradingOdds <- function(frame, sampleLen=40) {
@@ -207,12 +221,13 @@ tradingOdds <- function(frame, sampleLen=40) {
                          trendSlope=frame$trend);
 
     # Now, let's look at distributions in small groups
-    statdat <- groupMap(statdat, denser(tc$x, sampleLen), fun=function(group) {
+    statdat <- groupMap(statdat, denser(tc$x, sampleLen), fun=function(group,i,j) {
                                             data.frame(start=group$date[1],
                                                        end=group$date[nrow(group)],
                                                        mean10=mean(group$pos10),
                                                        mean30=mean(group$pos30),
                                                        meanYr=mean(group$posYr),
+                                                       trendProgress=prog(tc$x,group$date[nrow(group)]),
                                                        slope=group$trend[1])
                                             });
 
@@ -234,7 +249,9 @@ groupMap <- function(frame, ranges, key="date", fun=NA) {
     ans<-data.frame();
     for(i in 2:length(ranges)) {
         if(ranges[i] - ranges[i-1]>2)
-            try(ans<-rbind(ans, fun(frame[frame[,key] >= ranges[i-1] & frame[,key] < ranges[i],])));
+            group <- frame[frame[,key] >= ranges[i-1] & frame[,key] < ranges[i],];
+            if(nrow(group)>0)
+                try(ans<-rbind(ans, fun(group, i, length(ranges))));
     }
 
     ans;
@@ -261,3 +278,23 @@ flatMap <- function(vals, fun) {
 
     ans;
 }
+
+trendCol <- function(idxs, vals) {
+    trend <- trendCurve(idxs,vals);
+    dTrend <- slope(scaleToMax(fitIn(trend$x, trend$y, idxs),1000))$y;
+}
+
+# Make dataframe using vector and function building particular rows.
+buildFrame <- function(arr, fun) {
+    acc <- fun(arr[1]);
+    for(i in 2:length(arr)) {
+        acc <- rbind(acc, fun(arr[i]));
+    }
+
+    acc;
+}
+
+firstAndLast <- function(arr) {
+    c(arr[1], arr[length(arr)]);
+}
+

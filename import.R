@@ -10,9 +10,6 @@ if(file.exists(".RData")) {
 
 source("util.R");
 
-id <- function(x) x;
-loc <- Sys.setlocale("LC_TIME", "C");
-
 
 #####################
 # Importing functions
