@@ -1,4 +1,5 @@
 
-source('util.R')
-source('update.R');
+#source('changeStat.R');
+#source('util.R')
 if(file.exists(".cfg.R")) try(source('.cfg.R'));
+source('update.R');

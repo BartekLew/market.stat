@@ -63,6 +63,25 @@ oddsProf <- function(eat, tgtCol="slope", srcCol="mean",
     ans
 }
 
+# Compute trend length profile
+trendLen <- function(asset) {
+    tc <- trendCurve(asset$date, asset$price);
+    l <- nrow(tc);
+    trends <- data.frame(length=vapply(2:(l-1), function(i) as.numeric(tc$x[i] - tc$x[i-1])/365, 0),
+                         sign=vapply(2:(l-1), function(i) tc$y[i] - tc$y[i-1], 0));
+    
+    round(data.frame(cLen=as.numeric(tc$x[l] - tc$x[l-1]) / 365,
+               cSig=-(tc$y[l-1] - tc$y[l-2]),
+               meanp=mean(trends[trends$sign>0,]$length),
+               meann=mean(trends[trends$sign<=0,]$length),
+               sdp=sd(trends[trends$sign>0,]$length),
+               sdn=sd(trends[trends$sign<=0,]$length),
+               minp=min(trends[trends$sign>0,]$length),
+               minn=min(trends[trends$sign<=0,]$length),
+               maxp=max(trends[trends$sign>0,]$length),
+               maxn=max(trends[trends$sign<=0,]$length)),2);
+}
+
 # Probabilities that price below 30-day mean comes with negative
 # trend.
 probCols <- function(assets) {
@@ -75,4 +94,15 @@ probCols <- function(assets) {
         print(ans);
         ans;
     });
+}
+
+# make basic prediction of current trend on given asset
+forecast <- function(asset) {
+    history <- statCols(get(asset)[,1:5], window=30);
+    l <- nrow(history);
+    history <- history[(l-30):l,];
+    print(data.frame(mean = mean(history$relprice),
+                     max = max(history$relprice),
+                     min = min(history$relprice)));
+    print(basicPredicators[asset,]);
 }

@@ -1,4 +1,3 @@
-source('changeStat.R');
 
 id <- function(x) x;
 loc <- Sys.setlocale("LC_TIME", "C");
@@ -125,14 +124,16 @@ fitIn <- function(tx, ty, vx) {
     vx <- vx[vx >= tx[1] & vx <= tx[length(tx)]];
     ans <- data.frame();
 
-    if(vx[1] == tx[1]) { ans <- data.frame(x=c(vx[1]), y=(ty[1])); }
+    if(vx[1] == tx[1]) { ans <- data.frame(x=c(vx[1]), y=(ty[1]), p=0); }
     for(i in 2:length(ty)) {
         base <- ty[i-1];
         dx <- as.numeric(tx[i]-tx[i-1]);
         dy <- ty[i] - base;
         xs <- vx[vx <= tx[i] & vx > tx[i-1]];
         step <- dy / dx;
-        ans <- rbind(ans, data.frame(x=c(as.Date(xs)), y=c(base + step * as.numeric(xs-tx[i-1]))));
+        ans <- rbind(ans, data.frame(x = c(as.Date(xs)),
+                                     y = c(base + step * as.numeric(xs-tx[i-1])),
+                                     p = seq(0, 1, by=1/(length(xs)-1))));
     }
 
     ans;
@@ -296,5 +297,25 @@ buildFrame <- function(arr, fun) {
 
 firstAndLast <- function(arr) {
     c(arr[1], arr[length(arr)]);
+}
+
+assetRow <- function(ticker, description, data) {
+    min<-min(data$price);
+    max<-max(data$price);
+    avg<-mean(data$price);
+
+    list(description, ticker,
+            age<-round(as.numeric(last(data$date) - data$date[1])/365,2),
+            round(abs(100*(max-min)/avg/age), 2),
+            round(data$price[length(data$price)] - avg, 2));
+}
+
+loadAsset <- function(ticker, description, file) {
+    data <- read.csv(file);
+    data$Date <- as.Date(data$Date, "%b %d, %Y");
+    data <- data[,1:5];
+    names(data) <- c('date', 'price', 'open', 'high', 'low');
+    assign(ticker, data, envir=.GlobalEnv);
+    assetRow(ticker, description, data);
 }
 
