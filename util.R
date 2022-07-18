@@ -3,24 +3,53 @@ id <- function(x) x;
 loc <- Sys.setlocale("LC_TIME", "C");
 last <- function(arr) { arr[length(arr)]; }
 
+source('chaos.R');
+
 #Show chart for given etf.
 chart <- function(frame, name="", meanWindow=nrow(frame)%/%10,
-                  from=frame[1,"date"], to=frame[nrow(frame),"date"]) {
+                  from=frame[1,"date"], to=frame[nrow(frame),"date"],
+                  attractorWindow=30, showVols=F) {
     f2 <- frame[frame$date >= from & frame$date <= to,];
 
-    min<-min(f2$price);
-    max<-max(f2$price);
-    means <- data.frame(frame$date, mean=windowOp(frame, meanWindow, rowOp(mean, "price")));
+    mini<-min(f2$price);
+    maxi<-max(f2$price);
+    means <- data.frame(frame$date[(meanWindow+1):nrow(frame)],
+                        mean=windowOp(frame, meanWindow,
+                        rowOp(mean, "price")));
 
     trend <- trendCurve(frame$date,frame$price);
 
-    plot(x=f2$date, y=f2$price, xlab="Date", ylab="Price", main=name);
+    plot(x=f2$date, y=f2$price, xlab="Date", ylab="Price", main=name, type='l');
+
+    meansFL <- data.frame(date=frame$date[(attractorWindow+1):nrow(frame)],
+                        mean=windowOp(frame, attractorWindow,
+                        rowOp(mean, "price")));
+    freqLines(meansFL, as.Date(from), as.Date(to), step=3*365);
+    lines(x=f2$date, y=f2$price, xlab="Date", ylab="Price", main=name, type='l');
+    
     lines(trend, col="red", lwd=4);
     lines(means, col="blue", lwd=4);
-    dateLine(as.Date("2008-06-01", "%Y-%m-%d"), from, to, min, max);
-    dateLine(as.Date("2018-01-01", "%Y-%m-%d"), from, to, min, max);
-    dateLine(as.Date("2020-03-01", "%Y-%m-%d"), from, to, min, max);
-    dateLine(as.Date("2022-02-26", "%Y-%m-%d"), from, to, min, max);
+
+    dateLine(as.Date("2008-06-01", "%Y-%m-%d"), from, to, mini, maxi);
+    dateLine(as.Date("2018-01-01", "%Y-%m-%d"), from, to, mini, maxi);
+    dateLine(as.Date("2020-03-01", "%Y-%m-%d"), from, to, mini, maxi);
+    dateLine(as.Date("2022-02-26", "%Y-%m-%d"), from, to, mini, maxi);
+
+    if("vol" %in% colnames(f2) & showVols) {
+        volDF <- f2[!is.na(f2$vol),];
+        ampV <- max(volDF$vol) - min(volDF$vol);
+        vols <- windowOp(volDF, 7, function(df) mean(df$vol));
+        lines(volDF$date[8:nrow(volDF)], ((vols - min(vols))/ampV * (maxi-mini)) + mini, type='l', col='purple');
+    }
+}
+
+atractors <- function(arr, resolution=100) {
+    a <- min(arr);
+    b <- max(arr);
+    step <- b-a / resolution;
+    x <- sapply(1:resolution, function(i) a + i * step);
+    y <- sapply(x, function(i) length(arr[abs(arr - i)<step]));
+    data.frame(x=x, y=y);
 }
 
 # Moving window operation
@@ -30,10 +59,6 @@ windowOp <- function(frame, size, action) {
     }
 
     ans <- c();
-
-    for(i in 1:size) {
-        ans <- append(ans, action(frame[1:i,]));
-    }
 
     for(i in (size+1):nrow(frame)) {
         ans <- append(ans, action(frame[(i-size):i,]));
@@ -310,9 +335,9 @@ assetRow <- function(ticker, description, data) {
             round(data$price[length(data$price)] - avg, 2));
 }
 
-loadAsset <- function(ticker, description, file) {
+loadAsset <- function(ticker, description, file, dateFmt="%b %d, %Y") {
     data <- read.csv(file);
-    data$Date <- as.Date(data$Date, "%b %d, %Y");
+    data$Date <- as.Date(data$Date, dateFmt);
     data <- data[,1:5];
     names(data) <- c('date', 'price', 'open', 'high', 'low');
     assign(ticker, data, envir=.GlobalEnv);

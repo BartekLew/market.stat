@@ -106,3 +106,56 @@ forecast <- function(asset) {
                      min = min(history$relprice)));
     print(basicPredicators[asset,]);
 }
+
+# combine many assets into a wallet
+wallet <- function(tickers, rebalaceInterval=365) {
+    acc <- get(tickers[1])[,1:2];
+    names(acc) <- c('date', tickers[1]);
+    for(i in 2:length(tickers)) {
+        other <- get(tickers[i])[,1:2];
+        if(other$date[1] > acc$date[1]) {
+            acc <- acc[acc$date >= other$date[1],];
+        } else {
+            other <- other[other$date >= acc$date[1],];
+        }
+        days <- unique(c(acc$date[acc$date >= other$date[1]],
+                         other$date[other$date >= acc$date[1]]));
+        days <- days[!is.na(days)];
+        nacc <- cbind(acc[1,], other[1,2]);
+        names(nacc)[i+1] <- tickers[i];
+        i0 <- 2; i1 <- 2;
+        for(d in days[-1]) {
+            if(i0 < nrow(acc) && d > acc$date[i0]) i0 <- i0 + 1;
+            if(i1 < nrow(other) && d > other$date[i1]) i1 <- i1 + 1;
+            nr <- cbind(acc[i0,],other[i1,2]);
+            names(nr) <- names(nacc);
+            nacc <- rbind(nacc, nr);
+        }
+        acc <- nacc;
+    }
+
+    acc;
+
+    base <- max(acc[1,-1]);
+    factors <- sapply(acc[1,-1], function(x) base / x);
+    for(i in 1:length(factors)) {
+        acc[i+1] <- acc[i+1] * factors[i];
+    }
+    
+    for (i  in seq(rebalaceInterval, nrow(acc), by=rebalaceInterval)) {
+        base <- sum(acc[i, -1]) / (length(acc)-1);
+        factors <- sapply(acc[i, -1], function(x) base / x);
+        past <- acc[1:(i-1),]; future <- acc[i:nrow(acc),];
+        for(i in 1:length(factors)) {
+            future[i+1] <- future[i+1] * factors[i];
+        }
+        acc <- rbind(past, future);
+    }
+
+    nums <- acc[,-1];
+    acc$sum <- sapply(1:nrow(acc), function(i) round(sum(nums[i,]), 2));
+    acc$sd <- sapply(1:nrow(acc), function(i) round(sd(nums[i,]), 2));
+    acc$diff <- sapply(1:nrow(acc), function(i) round(max(nums[i,]) - min(nums[i,]), 2));
+
+    acc
+}

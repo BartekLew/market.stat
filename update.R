@@ -2,10 +2,12 @@
 # This script uses XTB API to download the newest data about
 # chosen symbols.
 
-#if(format(Sys.Date(), "%w") %in% 1:5) {
+Sys.setlocale("LC_TIME", "C");
+
+if(format(Sys.Date(), "%w") %in% 1:5) {
     load(".RData");
 
-    syms <- c('SXDPEX.DE', 'IBCI.DE', 'IEDY.UK', 'GDXJ.UK_9', 'CNYA.DE', 'USDPLN', 'INR.FR', 'XSMI.DE', 'AIGI.UK');
+    syms <- c('SXDPEX.DE', 'IBCI.DE', 'IEDY.UK', 'GDXJ.UK_9', 'CNYA.DE', 'USDPLN', 'INR.FR_9', 'XSMI.DE', 'AIGI.UK', 'AIGI.UK', 'USPY.UK', 'KER.PL_9');
 
     for(sym in syms) {
         ticker <- sub('\\..*$', '', sym);
@@ -28,5 +30,5 @@
     }
 
     save(list=ls(), file=".RData");
-#}
+}
 

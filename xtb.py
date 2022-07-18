@@ -29,6 +29,8 @@ DEBUG = False
 DEFAULT_XAPI_ADDRESS        = 'xapi.xtb.com'
 DEFAULT_XAPI_PORT           = 5124
 DEFUALT_XAPI_STREAMING_PORT = 5125
+#DEFAULT_XAPI_PORT           = 5112
+#DEFUALT_XAPI_STREAMING_PORT = 5113
 
 # wrapper name and version
 WRAPPER_NAME    = 'python'
@@ -89,6 +91,7 @@ class JsonSocket(object):
     def connect(self):
         for i in range(API_MAX_CONN_TRIES):
             try:
+                logger.info("Connecting at " + str(self.address) + "@" + str(self.port))
                 self.socket.connect( (self.address, self.port) )
             except socket.error as msg:
                 logger.error("SockThread Error: %s" % msg)
@@ -313,6 +316,7 @@ def query(name, args, respTransform):
 
     client = APIClient()
     
+    logger.info("UserID: " + str(userId)) 
     loginResponse = client.execute(loginCommand(userId=userId, password=password, appName="myapp"))
     logger.info(str(loginResponse)) 
 
@@ -367,11 +371,9 @@ def timeQuery(name, argsF, transform):
     return resp;
 
 def tradesAns(data):
-    rows = ["symbol", "change(%)", "open_price", "close_price", "profit", "nominalValue"]
+    rows = ["symbol", "volume", "open_timeString", "open_price", "close_timeString", "close_price"]
     print(" ".join(map(lambda key: "{x:12s}".format(x=key), rows)))
     for sym in data:
-        sym['change(%)'] = round((float(sym['close_price']) - float(sym['open_price']))
-                                 /float(sym['open_price']) *100, 4)
         print(" ".join(map(lambda key: "{x:12s}".format(x=str(sym[key])), rows)))
 
     return data
@@ -403,7 +405,8 @@ def histTransform(data):
                 "price" : round(open + it['close'] / mult,2),
                 "open" : round(open,2),
                 "high" : round(open + it['high'] / mult,2),
-                "low" : round(open + it['low'] / mult,2) }
+                "low" : round(open + it['low'] / mult,2),
+                "vol" : it['vol'] }
         print(",".join(map(lambda key: "{x:s}".format(x=str(ans[key])), ans.keys())))
 
     return data
