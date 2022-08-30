@@ -19,7 +19,8 @@ chart <- function(frame, name="", meanWindow=nrow(frame)%/%10,
 
     trend <- trendCurve(frame$date,frame$price);
 
-    plot(x=f2$date, y=f2$price, xlab="Date", ylab="Price", main=name, type='l');
+    plot(x=f2$date, y=f2$high, xlab="Date", ylab="Price", main=name, type='l', col="#a0a0a0");
+    lines(x=f2$date, y=f2$low, col="#a0a0a0");
 
     meansFL <- data.frame(date=frame$date[(attractorWindow+1):nrow(frame)],
                         mean=windowOp(frame, attractorWindow,
@@ -313,8 +314,10 @@ trendCol <- function(idxs, vals) {
 # Make dataframe using vector and function building particular rows.
 buildFrame <- function(arr, fun) {
     acc <- fun(arr[1]);
-    for(i in 2:length(arr)) {
-        acc <- rbind(acc, fun(arr[i]));
+    if(length(arr) > 1) {
+        for(i in 2:length(arr)) {
+            acc <- rbind(acc, fun(arr[i]));
+        }
     }
 
     acc;
