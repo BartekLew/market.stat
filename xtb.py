@@ -26,9 +26,13 @@ from threading import Thread
 DEBUG = False
 
 #default connection properites
-DEFAULT_XAPI_ADDRESS        = 'xapi.xtb.com'
-DEFAULT_XAPI_PORT           = 5124
-DEFUALT_XAPI_STREAMING_PORT = 5125
+XAPI_ADDRESS        = 'xapi.xtb.com'
+XAPI_PORT           = 5124
+XAPI_STREAMING_PORT = 5125
+if("XAPI_PORT" in os.environ):
+    XAPI_PORT = int(os.environ["XAPI_PORT"])
+    XAPI_STREAMING_PORT = XAPI_PORT + 1
+    
 #DEFAULT_XAPI_PORT           = 5112
 #DEFUALT_XAPI_STREAMING_PORT = 5113
 
@@ -188,7 +192,7 @@ class JsonSocket(object):
     
     
 class APIClient(JsonSocket):
-    def __init__(self, address=DEFAULT_XAPI_ADDRESS, port=DEFAULT_XAPI_PORT, encrypt=True):
+    def __init__(self, address=XAPI_ADDRESS, port=XAPI_PORT, encrypt=True):
         super(APIClient, self).__init__(address, port, encrypt)
         if(not self.connect()):
             raise Exception("Cannot connect to " + address + ":" + str(port) + " after " + str(API_MAX_CONN_TRIES) + " retries")
@@ -204,7 +208,7 @@ class APIClient(JsonSocket):
         return self.execute(baseCommand(commandName, arguments))
 
 class APIStreamClient(JsonSocket):
-    def __init__(self, address=DEFAULT_XAPI_ADDRESS, port=DEFUALT_XAPI_STREAMING_PORT, encrypt=True, ssId=None, 
+    def __init__(self, address=XAPI_ADDRESS, port=XAPI_STREAMING_PORT, encrypt=True, ssId=None, 
                  tickFun=None, tradeFun=None, balanceFun=None, tradeStatusFun=None, profitFun=None, newsFun=None):
         super(APIStreamClient, self).__init__(address, port, encrypt)
         self._ssId = ssId
@@ -372,9 +376,9 @@ def timeQuery(name, argsF, transform):
 
 def tradesAns(data):
     rows = ["symbol", "volume", "open_timeString", "open_price", "close_timeString", "close_price"]
-    print(" ".join(map(lambda key: "{x:12s}".format(x=key), rows)))
+    print(",".join(rows))
     for sym in data:
-        print(" ".join(map(lambda key: "{x:12s}".format(x=str(sym[key])), rows)))
+        print(",".join(map(lambda key: "{x}".format(x=sym[key]), rows)))
 
     return data
 
@@ -412,7 +416,8 @@ def histTransform(data):
     return data
 
 commands = {
-    "trades": lambda args: query('getTrades', {"openedOnly":True}, tradesAns),
+    "trades": lambda args: query('getTrades', {"openedOnly":False}, tradesAns),
+    "trades+": lambda args: query('getTradesHistory', {"start" : 1, "end": 0}, tradesAns),
     "price": lambda args: query('getTickPrices', {"timestamp": int(args[0]), "symbols": args[1:], "level": 0}, priceTransform),
     "now": lambda args: query('getServerTime', {}, timeAns),
     "history": lambda args: timeQuery('getChartRangeRequest', lambda ctime:{"info": {"period": 1440, "start":ctime-(int(args[0]) * 1000 * 3600 * 24), "end":ctime, "symbol": args[1], "ticks":0}}, histTransform)
