@@ -6,6 +6,8 @@ mysd <- function(arr) {
     else sd(arr);
 }
 
+# append statistic columns to data frame: mean, standard deviation,
+# difference between high and low, and relative price to mean.
 statCols <- function(frame, window=nrow(frame)%/%10, col="price",
                             baseCols=c()) {
     if(length(baseCols) > 0) {
@@ -18,6 +20,8 @@ statCols <- function(frame, window=nrow(frame)%/%10, col="price",
                       relprice=round((frame$price - ans$mean) / ans$sd,2));
 }
 
+# function takes data frame, divides it to periods and for each of them
+# yields a row with some statistics data.
 extAssetTab <- function(frame, window=30) {
     onPhases(frame, function(group, sval) {
                 groupMap(group, denser(firstAndLast(group$date), window),
@@ -34,6 +38,7 @@ extAssetTab <- function(frame, window=30) {
                 });
 }
 
+# split data frame to pieces and perform function on them
 onPhases <- function(frame, fun) {
     tc <- trendCurve(frame$date, frame$price);
     groupMap(statCols(frame, baseCols=1:5),
@@ -48,6 +53,9 @@ onPhases <- function(frame, fun) {
              });
 }
 
+# function accepts result of extAssetTab and compute in how many cases
+# positive/negative srcCol predicts positive/negative dstCol. By default,
+# mean price relative to average; and slope.
 oddsProf <- function(eat, tgtCol="slope", srcCol="mean",
                      outCols=c('positive', 'negative')) {
     s <- eat[[srcCol]];

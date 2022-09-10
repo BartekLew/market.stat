@@ -1,0 +1,16 @@
+My market analysis stuff
+========================
+
+TOC
+=== 
+
+* changeStat.R - functions for measuring change
+* chaos.R - functions for chaoscopy and marking value frequencies on plots
+* event.R - describing changes in terms of events
+* fullLoad.R - load all symbols from XTB xAPI
+* import.R - some old importing data (used for investing.com csvs)
+* trade-summary.R - sumarize earnings from given trades
+* update.R - update existing price data frames using XTB xAPI
+* util.R - all mess :)
+* xtb-login.sh - modify environment variables so that xtb.py can log in to specific account
+* xtb.py - XTB xAPI data retriever
