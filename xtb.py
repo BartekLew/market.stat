@@ -394,33 +394,40 @@ def timeAns(x):
 def strTime(str):
     return int(time.mktime(datetime.datetime.strptime(str, "%Y-%m-%d").timetuple()))
 
-def normDate(dateStr) :
+def dayDate(dateStr) :
     date = re.sub(",[^,]+$", "", dateStr)
     date = datetime.datetime.strptime(date, "%b %d, %Y")
     return date.strftime("%Y-%m-%d")
 
-def histTransform(data):
-    digits = data['returnData']['digits']
-    mult = 10**digits
-    data = data['returnData']['rateInfos']
-    for it in data:
-        open = it['open'] / mult
-        ans = { "date" : normDate(it['ctmString']),
-                "price" : round(open + it['close'] / mult,2),
-                "open" : round(open,2),
-                "high" : round(open + it['high'] / mult,2),
-                "low" : round(open + it['low'] / mult,2),
-                "vol" : it['vol'] }
-        print(",".join(map(lambda key: "{x:s}".format(x=str(ans[key])), ans.keys())))
+def minuteDate(dateStr) :
+    date = datetime.datetime.strptime(dateStr, "%b %d, %Y, %H:%M:%S %p")
+    return date.strftime("%Y-%m-%d %H:%M")
 
-    return data
+def histTransform(dateFormat):
+    def ht(data):
+        digits = data['returnData']['digits']
+        mult = 10**digits
+        data = data['returnData']['rateInfos']
+        for it in data:
+            open = it['open'] / mult
+            ans = { "date" : dateFormat(it['ctmString']),
+                    "price" : round(open + it['close'] / mult,2),
+                    "open" : round(open,2),
+                    "high" : round(open + it['high'] / mult,2),
+                    "low" : round(open + it['low'] / mult,2),
+                    "vol" : it['vol'] }
+            print(",".join(map(lambda key: "{x:s}".format(x=str(ans[key])), ans.keys())))
+
+        return data
+    return ht
 
 commands = {
     "trades": lambda args: query('getTrades', {"openedOnly":False}, tradesAns),
     "trades+": lambda args: query('getTradesHistory', {"start" : 1, "end": 0}, tradesAns),
     "price": lambda args: query('getTickPrices', {"timestamp": int(args[0]), "symbols": args[1:], "level": 0}, priceTransform),
     "now": lambda args: query('getServerTime', {}, timeAns),
-    "history": lambda args: timeQuery('getChartRangeRequest', lambda ctime:{"info": {"period": 1440, "start":ctime-(int(args[0]) * 1000 * 3600 * 24), "end":ctime, "symbol": args[1], "ticks":0}}, histTransform)
+    "history": lambda args: timeQuery('getChartRangeRequest', lambda ctime:{"info": {"period": 1440, "start":ctime-(int(args[0]) * 1000 * 3600 * 24), "end":ctime, "symbol": args[1], "ticks":0}}, histTransform(dayDate)),
+    "latest": lambda args: timeQuery('getChartLastRequest', lambda ctime:{"info": {"period": 15, "start":ctime-(int(args[0]) * 1000 * 3600 * 24), "symbol": args[1]}}, histTransform(minuteDate))
 }
 
 def main(opt, args):

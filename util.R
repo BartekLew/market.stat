@@ -44,6 +44,29 @@ chart <- function(frame, name="", meanWindow=nrow(frame)%/%10,
     }
 }
 
+shortChart <- function(frame, name="", meanWindow=nrow(frame)%/%10,
+                  from=frame[1,"date"], to=frame[nrow(frame),"date"],
+                  attractorWindow=30, showVols=F) {
+    f2 <- frame[frame$date >= from & frame$date <= to,];
+
+    mini<-min(f2$price);
+    maxi<-max(f2$price);
+    means <- data.frame((meanWindow+1):nrow(frame),
+                        mean=windowOp(frame, meanWindow,
+                        rowOp(mean, "price")));
+
+    plot(x=1:nrow(f2), y=f2$price, xlab="Date", ylab="Price", main=name, type='b', col="black");
+    lines(x=1:nrow(f2), y=f2$high, col="#4040a0");
+    lines(x=1:nrow(f2), y=f2$low, col="#4040a0");
+
+    lines(means, col="blue", lwd=4);
+
+    for(i in 1:(nrow(f2)/34)) {
+        x <- (i*34);
+        lines(x=c(x, x), y=c(mini, maxi), col="#a0a0a0");
+    }
+}
+
 atractors <- function(arr, resolution=100) {
     a <- min(arr);
     b <- max(arr);
@@ -347,3 +370,22 @@ loadAsset <- function(ticker, description, file, dateFmt="%b %d, %Y") {
     assetRow(ticker, description, data);
 }
 
+rangeLines <- function(df, meanWindow=nrow(df)/10, color="green", column="price") {
+    step <- nrow(df)/pieces;
+    for(i in 0:pieces) {
+        lim <- min((i+1)*step, nrow(df))
+        piece <- df[(i*step):lim,];
+        sd <- sd(piece[,column]);
+        mean <- mean(piece[,column]);
+        lines(piece$date[c(1,nrow(piece))], c(mean,mean), col=color);
+        lines(piece$date[c(1,nrow(piece))], c(mean+sd,mean+sd), col=color);
+        lines(piece$date[c(1,nrow(piece))], c(mean-sd,mean-sd), col=color);
+    }
+}
+
+shortDat <- function(file) {
+    df <- read.csv(file, stringsAsFactors=F);
+    names(df) <- c('date', 'price', 'open', 'high', 'low', 'vol');
+    df$date <- as.POSIXct(df$date, "%Y-%m-%d %H:%M");
+    df[order(df$date),];
+}
