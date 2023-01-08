@@ -14,10 +14,12 @@ statCols <- function(frame, window=nrow(frame)%/%10, col="price",
         frame <- frame[,baseCols];
     }
 
-    ans <- cbind(frame, mean=round(windowOp(frame, window, rowOp(mean, col)),2),
-                        sd=round(windowOp(frame, window, rowOp(mysd, col)),2));
+    ans <- cbind(frame, mean=round(windowOp(frame, window, rowOp(mean, col), T),2),
+                        sd=round(windowOp(frame, window, rowOp(mysd, col), T),2));
     ans <- cbind(ans, daydiff=round((frame$high-frame$low) / ans$sd,2),
-                      relprice=round((frame$price - ans$mean) / ans$sd,2));
+                      relprice=round((frame$price - ans$mean) / ans$sd,2),
+                      dmean=windowOp(ans, 2, function(df) (df$mean[2] - df$mean[1]) / df$mean[1],
+                                               T));
 }
 
 # function takes data frame, divides it to periods and for each of them

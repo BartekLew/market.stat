@@ -77,12 +77,18 @@ atractors <- function(arr, resolution=100) {
 }
 
 # Moving window operation
-windowOp <- function(frame, size, action) {
+windowOp <- function(frame, size, action, approxHead=F) {
     if(nrow(frame) < size*2) {
         stop("windowOp must be applied on frame of at least 2*size rows!");
     }
 
     ans <- c();
+
+    if(approxHead) {
+        for(i in 1:size) {
+            ans <- append(ans, action(frame[1:i,]));
+        }
+    }
 
     for(i in (size+1):nrow(frame)) {
         ans <- append(ans, action(frame[(i-size):i,]));
@@ -389,3 +395,4 @@ shortDat <- function(file) {
     df$date <- as.POSIXct(df$date, "%Y-%m-%d %H:%M");
     df[order(df$date),];
 }
+

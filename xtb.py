@@ -365,7 +365,7 @@ def timeQuery(name, argsF, transform):
 
     resp = client.commandExecute(name, arguments=argsF(ctime))
     if(resp['status'] == True):
-        ans = transform(resp)
+        ans = transform(resp['returnData'])
         resp = client.commandExecute('logout')
         client.disconnect()
         return ans
@@ -405,20 +405,21 @@ def minuteDate(dateStr) :
 
 def histTransform(dateFormat):
     def ht(data):
-        digits = data['returnData']['digits']
+        digits = data['digits']
         mult = 10**digits
-        data = data['returnData']['rateInfos']
+        data = data['rateInfos']
+        ans = []
         for it in data:
             open = it['open'] / mult
-            ans = { "date" : dateFormat(it['ctmString']),
+            ans.append({
+                    "date" : dateFormat(it['ctmString']),
                     "price" : round(open + it['close'] / mult,2),
                     "open" : round(open,2),
                     "high" : round(open + it['high'] / mult,2),
                     "low" : round(open + it['low'] / mult,2),
-                    "vol" : it['vol'] }
-            print(",".join(map(lambda key: "{x:s}".format(x=str(ans[key])), ans.keys())))
-
-        return data
+                    "vol" : it['vol']
+            })
+        return ans
     return ht
 
 commands = {
