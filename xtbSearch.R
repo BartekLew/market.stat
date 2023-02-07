@@ -2,8 +2,9 @@ source('util.R');
 source('changeStat.R');
 
 readXtbDat <- function(ticker) {
-    glob <- paste("xtb/", ticker, "*.csv", sep="");
+    glob <- paste("xtb/", ticker, "*csv", sep="");
     fname <- Sys.glob(glob)[1];
+    print(fname);
 
     symdat <- read.csv(fname);
     if(nrow(symdat) > 0) {
@@ -13,6 +14,14 @@ readXtbDat <- function(ticker) {
     }
 
     symdat;
+}
+
+loadXtb <- function(ticker, window=30) {
+    df <- statCols(readXtbDat(ticker), window=window);
+}
+
+noisePlot <- function(df, len=500) {
+    plot(tail(df$relprice, n=len), type='l');
 }
 
 gradeAssets <- function(fun=stdGrade, allSym=read.csv('xtb.csv')) {

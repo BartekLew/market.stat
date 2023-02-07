@@ -13,16 +13,38 @@ matchLine <- function(ys, off=0) {
     function(x) a * (x - off) + b;
 }
 
-trends <- function(ys, chunks = 10) {
+bisectMatch <- function(ys, matcher, errGrade, total = NA, tg = NA, offset = 0) {
     n <- length(ys);
-    step <- n / chunks;
+    if(!is.function(total)) {
+        total <- matcher(ys, offset);
+        tg <- errGrade(total, 1:n, ys);
+    }
+
+    if(n<10) {data.frame(x=c(1,n), y=c(total(1), total(n)));}
+    else {
+        sectOn <- floor(n/2);
+        a <- matcher(ys[1:sectOn],offset);
+        ag <- errGrade(a, 1:sectOn, ys[1:sectOn]);
+        b <- matcher(ys[sectOn:n], offset+sectOn);
+        bg <- errGrade(b, sectOn:n, ys[sectOn:n]);
+    
+        print(c(ag, bg, tg));
+        if(ag < tg || bg < tg) {
+            ar <- bisectMatch(ys[1:sectOn], matcher, errGrade, a, ag, offset);
+            br <- bisectMatch(ys[sectOn:n], matcher, errGrade, b, bg, offset+sectOn);
+            rbind(ar, br);
+        } else {
+            data.frame(x = c(1,n) + offset, y = c(total(1 + offset), total(n + offset)));
+        }
+    }
+}
+
+trends <- function(ys) {
+    tr <- bisectMatch(ys, matchLine,
+          function(f, xs, ys) sum(abs(ys - f(xs)))/(length(xs)**1.5));
 
     plot(ys, type='l');
-    for(i in 1:chunks) {
-        xsi <- floor((i-1)*step) : floor(i*step);
-        ysi <- ys[xsi];
-        appr <- matchLine(ysi, xsi[1]);
-        s <- xsi[1]; e <- xsi[length(xsi)];
-        lines(c(s,e), c(appr(s), appr(e)));
-    }
+    lines(tr);
+
+    tr
 }

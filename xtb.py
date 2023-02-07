@@ -432,7 +432,7 @@ commands = {
 }
 
 def main(opt, args):
-    commands[opt](args)
+    print(commands[opt](args))
     
     
 if __name__ == "__main__":
